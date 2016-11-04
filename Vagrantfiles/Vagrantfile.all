@@ -1,0 +1,32 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  config.ssh.insert_key = false
+
+  # SIRF server node
+  config.vm.define "servernode" do |node|
+    node.vm.box = "phillipviana/opensirf-jaxrs"
+  end
+
+  # SIRF UI node
+  config.vm.define "uinode" do |node|
+    node.vm.box = "phillipviana/opensirf-play"
+  end
+
+  # Devstack node (Keystone+Swift)
+  config.vm.define "devstacknode" do |node|
+    node.vm.box = "phillipviana/opensirf-ident-swift"
+  end
+
+  # Filesystem nodes. These come with an 8GB virtual hard disk and two 500MB LVs for scale testing purposes
+  [1,2].each do |i|
+    config.vm.define "fsnode#{i}" do |node|
+      node.vm.box = "phillipviana/opensirf-base"
+      node.vm.provider :virtualbox do |vb|
+        vb.customize ['createhd', '--filename', "sirfStorage#{i}.vdi", '--size', '8192']
+        vb.customize ['storageattach', :id, '--storagectl', 'SATA Controller', '--port', 1, '--device', 0, '--type', 'hdd', '--medium', "sirfStorage#{i}.vdi"]
+      end
+    end
+  end
+end

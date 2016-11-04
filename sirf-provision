@@ -1,0 +1,20 @@
+#!/bin/sh
+ACTUATOR_HOME=/var/lib/sirf/elast-actuator
+VAGRANT_IMAGE=Vagrantfile.$1
+export VM_NAME=$2
+VAGRANTFILE_DIR=elast-$VM_NAME
+NODE_NAME=elast-$(date +"%Y%m%d%H%M%S")
+
+cd $ACTUATOR_HOME
+mkdir $VAGRANTFILE_DIR
+cp Vagrantfiles/$VAGRANT_IMAGE $VAGRANTFILE_DIR/Vagrantfile
+cd $VAGRANTFILE_DIR
+vagrant up >> elast.log
+
+vmId=$(vagrant global-status | grep `pwd` | cut -f1 -d" ")
+vmSshPort=$(vagrant port $vmId --machine-readable | grep forwarded_port | cut -f5 -d,)
+vmIp=$(vagrant ssh $vmId -- sudo /sbin/ifconfig enp0s8 | grep "inet " | tr -s ' ' | cut -f3 -d' ')
+
+knife bootstrap 127.0.0.1 --ssh-port $vmSshPort --ssh-user vagrant --ssh-password vagrant --sudo -r 'recipe[opensirf_cookbook_register::devstack],recipe[opensirf_cookbook_register::noderegister]' -N $NODE_NAME >> elast.log
+
+vagrant ssh $vmId -- "echo '{\"elast-ip\": \"'$vmIp'\"}' | sudo chef-client -j /dev/stdin" >> elast.log
